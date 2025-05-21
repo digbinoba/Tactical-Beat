@@ -1,32 +1,30 @@
-using System.Collections;
 using UnityEngine;
+using System.Collections;
 
 public class HomingEnemy : MonoBehaviour
 {
     public Transform target;
     public float moveDuration = 2f;
-    public AnimationCurve moveCurve = AnimationCurve.Linear(0, 0, 1, 1);
     public float knockbackDistance = 2f;
     public float knockbackTime = 1.5f;
+
+    [HideInInspector] public Vector3 startPosition;
+    [HideInInspector] public float elapsedTime = 0f;
+
+    private bool knockedBack = false;
+    private float knockbackTimer = 0f;
 
     public AudioSource audioSource;
     public AudioClip knockbackSound;
     public AudioClip punchSound;
 
-    private Vector3 startPosition;
-    private float elapsedTime = 0f;
-    private bool knockedBack = false;
-    private float knockbackTimer = 0f;
-
     private void Start()
     {
-        startPosition = transform.position;
+        if (startPosition == Vector3.zero)
+            startPosition = transform.position;
 
-        // Optional safety check
         if (audioSource == null)
-        {
-            Debug.LogWarning("[HomingEnemy] AudioSource not assigned.");
-        }
+            audioSource = GetComponent<AudioSource>();
     }
 
     private void Update()
@@ -35,9 +33,9 @@ public class HomingEnemy : MonoBehaviour
 
         elapsedTime += Time.deltaTime;
         float t = Mathf.Clamp01(elapsedTime / moveDuration);
-        float curvedT = moveCurve.Evaluate(t);
 
-        transform.position = Vector3.Lerp(startPosition, target.position, curvedT);
+        // Smooth lerp from spawn to target
+        transform.position = Vector3.Lerp(startPosition, target.position, t);
         transform.LookAt(target);
     }
 
@@ -47,22 +45,12 @@ public class HomingEnemy : MonoBehaviour
         {
             if (!BlockZone.Instance.AreBothHandsBlocking)
             {
-                Debug.Log("[HomingEnemy] Punch detected");
-
-                if (punchSound == null)
-                    Debug.LogWarning("Punch sound is not assigned!");
-
-                if (audioSource == null)
-                    Debug.LogWarning("AudioSource is missing!");
-
-                if (audioSource && punchSound)
-                {
-                    Debug.Log("Playing punch sound...");
-                    audioSource.PlayOneShot(punchSound);
-                }
+                Debug.Log("[HomingEnemy] Punched and destroyed.");
+                audioSource.PlayOneShot(punchSound);
+                Destroy(gameObject);
 
                 ScoreManager.Instance.IncreaseScore(10);
-                Destroy(gameObject);
+                Debug.Log("Enemy hit! Score increased.");
             }
             else
             {
@@ -95,12 +83,13 @@ public class HomingEnemy : MonoBehaviour
         Vector3 direction = (transform.position - target.position).normalized;
         Vector3 end = start + direction * knockbackDistance;
 
-        if (knockbackSound && audioSource && audioSource.enabled)
+        float elapsed = 0f;
+
+        if (knockbackSound != null && audioSource != null)
         {
             audioSource.PlayOneShot(knockbackSound);
         }
 
-        float elapsed = 0f;
         while (elapsed < knockbackTime)
         {
             float t = elapsed / knockbackTime;
@@ -110,7 +99,6 @@ public class HomingEnemy : MonoBehaviour
         }
 
         transform.position = end;
-
         knockedBack = false;
         elapsedTime = 0f;
         startPosition = transform.position;

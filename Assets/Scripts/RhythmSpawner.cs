@@ -1,88 +1,126 @@
 using UnityEngine;
 using System.Collections.Generic;
-using Meta.XR.MRUtilityKit; // Make sure this is imported for MRUK
+using Meta.XR.MRUtilityKit;
 
 public class RhythmSpawner : MonoBehaviour
 {
-    [Header("Rhythm Settings")]
-    public float bpm = 120f;
+    [Header("References")]
+    public AudioSource musicAudioSource;
     public GameObject enemyPrefab;
-    public float beatOffset = 0f;
-
-    [Header("Target Zone")]
     public Transform enemyTargetZone;
+    public SpawnPointCollector spawnPointCollector;
 
-    [Header("Spawn Control")]
-    public SpawnPointCollector spawnPointCollector; // Reference to the component that gathers spawn points
-    public float spawnDelayAfterSceneLoad = 0.2f; // buffer delay after scene loads before first beat
+    [Header("Beat Map ScriptableObject")]
+    public BeatMapData beatMapData;
 
-    private float beatInterval;
-    private float nextBeatTime;
+    [Header("Enemy Travel Settings")]
+    public float spawnBuffer = 0.1f;
+
+    [Header("Alternating Spawn Points")]
+    public Transform leftSpawnPoint;
+    public Transform rightSpawnPoint;
+
+    private bool spawnLeftNext = true;
+    private int nextBeatIndex = 0;
     private bool sceneReady = false;
-    private List<Transform> spawnPoints = new List<Transform>();
 
     void Start()
     {
-        beatInterval = 60f / bpm;
+        if (beatMapData == null || beatMapData.beatTimes.Count == 0)
+        {
+            Debug.LogError("[RhythmSpawner] BeatMapData not assigned or empty.");
+            return;
+        }
 
-        // Wait for MRUK scene to load before starting spawn logic
+        if (musicAudioSource == null)
+        {
+            Debug.LogError("[RhythmSpawner] Missing AudioSource.");
+            return;
+        }
+
+        // MRUK scene loading check
         if (MRUK.Instance != null)
         {
             MRUK.Instance.RegisterSceneLoadedCallback(() =>
             {
-                Debug.Log("[RhythmSpawner] Scene loaded.");
-                Invoke(nameof(InitializeSpawner), spawnDelayAfterSceneLoad);
+                Debug.Log("[RhythmSpawner] MRUK scene loaded.");
+                Invoke(nameof(InitializeSpawner), spawnBuffer);
             });
         }
         else
         {
-            Debug.LogWarning("[RhythmSpawner] MRUK not found. Starting spawner anyway (dev mode).");
+            Debug.LogWarning("[RhythmSpawner] MRUK not found. Initializing anyway.");
             InitializeSpawner();
         }
     }
 
     void InitializeSpawner()
     {
-        spawnPoints = spawnPointCollector.spawnTransforms;
-
-        if (spawnPoints.Count == 0)
+        if (spawnPointCollector != null && spawnPointCollector.spawnTransforms.Count > 0)
         {
-            Debug.LogWarning("[RhythmSpawner] No spawn points available.");
-            return;
+            Debug.Log($"[RhythmSpawner] {spawnPointCollector.spawnTransforms.Count} spawn points found.");
         }
 
-        Debug.Log($"[RhythmSpawner] Starting beat-based spawning. Found {spawnPoints.Count} spawn points.");
+        if (musicAudioSource != null)
+        {
+            musicAudioSource.clip = beatMapData.audioClip;
+            musicAudioSource.PlayDelayed(beatMapData.offset);
+        }
+
+        Debug.Log($"[RhythmSpawner] Initialized with beat map of {beatMapData.beatTimes.Count} beats.");
         sceneReady = true;
-        nextBeatTime = Time.time + beatOffset;
     }
 
     void Update()
     {
-        if (!sceneReady || spawnPoints.Count == 0 || enemyPrefab == null || enemyTargetZone == null)
+        if (!sceneReady || musicAudioSource == null || nextBeatIndex >= beatMapData.beatTimes.Count)
             return;
 
-        if (Time.time >= nextBeatTime)
+        float songTime = musicAudioSource.time;
+        float targetBeatTime = beatMapData.beatTimes[nextBeatIndex];
+        float spawnTime = targetBeatTime - 0.01f; // Minimal buffer for precision
+
+        if (songTime >= spawnTime)
         {
-            SpawnEnemyOnBeat();
-            nextBeatTime += beatInterval;
+            SpawnEnemyForBeat(targetBeatTime);
+            nextBeatIndex++;
         }
     }
 
-    void SpawnEnemyOnBeat()
+    void SpawnEnemyForBeat(float beatTime)
     {
-        // Pick a random spawn point
-        Transform spawnPoint = spawnPoints[Random.Range(0, spawnPoints.Count)];
+        if (enemyPrefab == null || enemyTargetZone == null)
+            return;
+
+        Transform spawnPoint = spawnLeftNext ? leftSpawnPoint : rightSpawnPoint;
+        spawnLeftNext = !spawnLeftNext; // Alternate side
+
+        if (spawnPoint == null)
+        {
+            Debug.LogWarning("[RhythmSpawner] One of the spawn points is not assigned.");
+            return;
+        }
+
         GameObject enemy = Instantiate(enemyPrefab, spawnPoint.position, spawnPoint.rotation);
 
         HomingEnemy homing = enemy.GetComponent<HomingEnemy>();
         if (homing != null)
         {
             homing.target = enemyTargetZone;
-            homing.moveDuration = beatInterval * Random.Range(3f, 6f); // Adjust this for timing
+
+            float distance = Vector3.Distance(spawnPoint.position, enemyTargetZone.position);
+            float timeUntilImpact = beatTime - musicAudioSource.time;
+            timeUntilImpact = Mathf.Max(timeUntilImpact, 0.01f); // Prevent divide by zero
+
+            //homing.moveDuration = travelTime;
+            homing.elapsedTime = 0f;
+            homing.startPosition = spawnPoint.position;
+
+            Debug.Log($"[RhythmSpawner] Spawned enemy at {(spawnLeftNext ? "Right" : "Left")} | Beat: {beatTime:F2}s | Speed:");
         }
         else
         {
-            Debug.LogWarning("[RhythmSpawner] Spawned enemy missing HomingEnemy script.");
+            Debug.LogWarning("[RhythmSpawner] Enemy prefab missing HomingEnemy script.");
         }
     }
 }
