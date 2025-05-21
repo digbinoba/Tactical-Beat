@@ -43,6 +43,9 @@ public class AudioBeatDetector : MonoBehaviour
             }
         }
 
+        // Log the energy for debugging
+        Debug.Log($"[AudioBeatDetector] Energy: {energy}");
+
         // If we detect a peak loud enough, we consider it a beat
         if (energy > beatThreshold && (Time.time - timeSinceLastBeat) > secondsPerBeat * (1 - tempoVariance) && (Time.time - timeSinceLastBeat) < secondsPerBeat * (1 + tempoVariance))
         {
@@ -52,8 +55,12 @@ public class AudioBeatDetector : MonoBehaviour
 
             // Adjust tempo for future beats
             secondsPerBeat = Mathf.Lerp(secondsPerBeat, 60f / bpm, Time.deltaTime * 0.5f);  // Smooth tempo changes
+
+            // Log when a beat is detected
+            Debug.Log($"[AudioBeatDetector] Detected a beat at {Time.time:F2}");
         }
     }
+
 
     public List<float> GetDetectedBeats()
     {

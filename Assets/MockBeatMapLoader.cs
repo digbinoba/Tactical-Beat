@@ -1,4 +1,3 @@
-// MockBeatMapLoader.cs
 using UnityEngine;
 
 public class MockBeatMapLoader : MonoBehaviour
@@ -11,14 +10,28 @@ public class MockBeatMapLoader : MonoBehaviour
     private bool spawnLeft = true; // Toggle between lanes
     public float minNoteGap = 0.5f; // Minimum gap between notes in seconds
     private float lastSpawnedNoteTime = -999f; // Keeps track of last note time
+    private bool isAudioReady = false; // To check if audio is ready
+
     void Start()
     {
+        // Start audio and set up the beat detection system
         audioSource.Play();
-        InvokeRepeating("GenerateNotesFromBeats", 0f, 0.1f);
+        isAudioReady = true; // Assume audio is ready, but you may want to ensure this using a timer if needed
+        InvokeRepeating("GenerateNotesFromBeats", 1f, 0.1f); // Start generating notes after a small delay
+    }
+
+    void Update()
+    {
+        if (isAudioReady && beatDetector.GetDetectedBeats().Count == 0)
+        {
+            Debug.Log("[MockBeatMapLoader] Audio is playing and beat detection should start.");
+        }
     }
 
     void GenerateNotesFromBeats()
     {
+        if (!isAudioReady) return; // Don't proceed if audio is not ready yet
+
         var detectedBeats = beatDetector.GetDetectedBeats();
         if (detectedBeats.Count == 0) return;
 
@@ -46,5 +59,4 @@ public class MockBeatMapLoader : MonoBehaviour
 
         detectedBeats.Clear();
     }
-
 }

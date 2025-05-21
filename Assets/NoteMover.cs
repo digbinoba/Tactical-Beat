@@ -1,32 +1,30 @@
-// NoteMover.cs
 using UnityEngine;
 
 public class NoteMover : MonoBehaviour
 {
     private Vector3 startPosition;
     private Vector3 targetPosition;
-    private float travelTime;
-    private float spawnTime;
+    private float moveDuration;
+    private float startTime;
 
-    public void Initialize(float noteTime, float currentSongTime, float travelTime)
+    public void SetNoteTarget(Vector3 start, Vector3 target, float duration)
     {
-        this.travelTime = travelTime;
-        this.spawnTime = currentSongTime;
-
-        // Target is Z = 0 (where the player punches), starting Z is current
-        startPosition = transform.position;
-        targetPosition = new Vector3(startPosition.x, startPosition.y, 0f);
+        startPosition = start;
+        targetPosition = target;
+        moveDuration = duration;
+        startTime = Time.time;
     }
 
     void Update()
     {
-        float elapsed = Time.timeSinceLevelLoad - spawnTime;
-        float t = Mathf.Clamp01(elapsed / travelTime);
+        float elapsed = Time.time - startTime;
+        float t = Mathf.Clamp01(elapsed / moveDuration);
         transform.position = Vector3.Lerp(startPosition, targetPosition, t);
 
         if (t >= 1f)
         {
-            Destroy(gameObject); // Auto destroy when it reaches the end
+            // Reached the target
+            // Optionally destroy or mark as hittable
         }
     }
 }

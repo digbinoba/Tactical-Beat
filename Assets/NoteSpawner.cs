@@ -1,62 +1,59 @@
-// NoteSpawner.cs
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections.Generic;
 
 public class NoteSpawner : MonoBehaviour
 {
-    public GameObject notePrefab;  // Prefab for the note
-    public Transform leftLane;     // Left lane position
-    public Transform rightLane;    // Right lane position
-    public float noteTravelTime = 2f; // Time it takes for notes to reach the player
-    public List<BeatNote> beatNotes = new List<BeatNote>();  // List of notes to spawn
+    public GameObject notePrefab;
+
+    public Transform leftLaneStart;
+    public Transform rightLaneStart;
+
+    public Transform leftLaneEnd;
+    public Transform rightLaneEnd;
+
+    public float noteTravelTime = 1.5f;
+
+    public List<BeatNote> beatNotes = new List<BeatNote>();
+    public AudioSource audioSource;
+
+    private int nextNoteIndex = 0;
 
     void Start()
     {
-        // Could potentially clear old notes
-        // for (int i = 0; i < beatNotes.Count; i++)
-        // {
-        //     Destroy(beatNotes[i].gameObject);
-        // }
+        Debug.Log($"NoteSpawner started. Beat notes: {beatNotes.Count}");
+        if (audioSource != null)
+        {
+            audioSource.Play();
+        }
     }
 
     void Update()
     {
-        SpawnNotes();
-    }
+        if (nextNoteIndex >= beatNotes.Count) return;
 
-    // Function to spawn notes at the correct time
-    void SpawnNotes()
-    {
-        float songTime = GetSongTime();  // Get current song time
+        float songTime = audioSource.time;
+        Debug.Log($"Current Song Time: {songTime}");
 
-        // Loop through all the notes that need to be spawned
-        for (int i = beatNotes.Count - 1; i >= 0; i--)
+        while (nextNoteIndex < beatNotes.Count &&
+               beatNotes[nextNoteIndex].time - noteTravelTime <= songTime)
         {
-            BeatNote note = beatNotes[i];
-
-            if (note.time <= songTime)
-            {
-                // Determine which lane the note should spawn in
-                Transform laneTransform = (note.lane == LaneSide.Left) ? leftLane : rightLane;
-
-                // Log the spawning process
-                Debug.Log($"Spawning note at time: {note.time}, Lane: {note.lane}");
-
-                // Instantiate the note and move it towards the player
-                GameObject noteInstance = Instantiate(notePrefab, laneTransform.position, Quaternion.identity);
-                NoteMover noteMover = noteInstance.GetComponent<NoteMover>();
-                noteMover.Initialize(note.time, songTime, noteTravelTime);
-
-                // Remove the note from the list once spawned
-                beatNotes.RemoveAt(i);
-            }
+            Debug.Log($"Spawning Note at Time: {beatNotes[nextNoteIndex].time}");
+            SpawnNote(beatNotes[nextNoteIndex]);
+            nextNoteIndex++;
         }
     }
 
-
-    // Function to get the current song time
-    float GetSongTime()
+    void SpawnNote(BeatNote beatNote)
     {
-        return Time.timeSinceLevelLoad;  // Assuming the song starts right away
+        Transform start = beatNote.lane == LaneSide.Left ? leftLaneStart : rightLaneStart;
+        Transform end = beatNote.lane == LaneSide.Left ? leftLaneEnd : rightLaneEnd;
+
+        GameObject noteObj = Instantiate(notePrefab, start.position, Quaternion.identity);
+
+        NoteMover mover = noteObj.GetComponent<NoteMover>();
+        if (mover != null)
+        {
+            mover.SetNoteTarget(start.position, end.position, noteTravelTime);
+        }
     }
 }
