@@ -30,33 +30,36 @@ public class MockBeatMapLoader : MonoBehaviour
 
     void GenerateNotesFromBeats()
     {
-        if (!isAudioReady) return; // Don't proceed if audio is not ready yet
-
         var detectedBeats = beatDetector.GetDetectedBeats();
         if (detectedBeats.Count == 0) return;
 
-        float currentTime = Time.timeSinceLevelLoad;
+        float songTime = audioSource.time; // ⬅ Always use this
 
         foreach (var beatTime in detectedBeats)
         {
-            // Skip if too soon since last note
             if (beatTime < lastSpawnedNoteTime + minNoteGap)
                 continue;
 
             LaneSide lane = spawnLeft ? LaneSide.Left : LaneSide.Right;
             spawnLeft = !spawnLeft;
 
+            // Calculate the time (in song time) when this note should reach the player
+            float hitTime = beatTime + startOffset + spawner.noteTravelTime;
+
             spawner.beatNotes.Add(new BeatNote
             {
-                time = beatTime + startOffset,
+                time = hitTime,  // song time when it should be hit
                 lane = lane
             });
 
-            lastSpawnedNoteTime = beatTime; // Update the last time we spawned a note
+            lastSpawnedNoteTime = beatTime;
+            Debug.Log($"[MockBeatMapLoader] BeatTime (song): {beatTime:F2}, Target HitTime: {hitTime:F2}");
 
-            Debug.Log($"[Note] Spawned beat at {beatTime + startOffset:F2}s on lane {lane}");
+            Debug.Log($"[Note] Scheduled note for {hitTime:F2}s (song time) on lane {lane}");
         }
 
         detectedBeats.Clear();
     }
+
+
 }

@@ -50,7 +50,7 @@ public class AudioBeatDetector : MonoBehaviour
         if (energy > beatThreshold && (Time.time - timeSinceLastBeat) > secondsPerBeat * (1 - tempoVariance) && (Time.time - timeSinceLastBeat) < secondsPerBeat * (1 + tempoVariance))
         {
             // It's a beat!
-            detectedBeats.Add(Time.time);
+            detectedBeats.Add(audioSource.time);
             timeSinceLastBeat = Time.time;
 
             // Adjust tempo for future beats

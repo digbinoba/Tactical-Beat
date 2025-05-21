@@ -53,7 +53,8 @@ public class NoteSpawner : MonoBehaviour
         NoteMover mover = noteObj.GetComponent<NoteMover>();
         if (mover != null)
         {
-            mover.SetNoteTarget(start.position, end.position, noteTravelTime);
+            // Pass the beatTime (when the note should be hit) to SetNoteTarget
+            mover.SetNoteTarget(start.position, end.position, noteTravelTime, beatNote.time); 
         }
     }
 }
